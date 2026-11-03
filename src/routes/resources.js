@@ -38,7 +38,7 @@ router.get("/:id", (req, res) => {
 
 // Define a POST endpoint to create a new resource from incoming JSON data.
 router.post("/", (req, res) => {
-    const { title, description, completed } = req.body;
+    const { title, description, completed } = req.body ?? {};
 
     if (typeof title !== "string" || title.trim() === "") {
         return res.status(400).json({
@@ -70,7 +70,7 @@ router.put("/:id", (req, res) => {
         });
     }
 
-    const { title, description, completed } = req.body;
+    const { title, description, completed } = req.body ?? {};
 
     if (typeof title !== "string" || title.trim() === "") {
         return res.status(400).json({
@@ -84,6 +84,21 @@ router.put("/:id", (req, res) => {
     resource.completed = completed ?? false;
 
     res.status(200).json({ data: resource });
+});
+
+// Define a DELETE endpoint to remove a resource by its ID.
+router.delete("/:id", (req, res) => {
+    const index = resources.findIndex((item) => item.id === req.params.id);
+
+    if (index === -1) {
+        return res.status(404).json({
+            error: `Resource with ID ${req.params.id} not found.`
+        });
+    }
+
+    const [deletedResource] = resources.splice(index, 1);
+
+    res.status(200).json({ data: deletedResource });
 });
 
 export default router;
