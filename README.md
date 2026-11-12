@@ -102,6 +102,58 @@ The DELETE request returned `200 OK`. A subsequent GET request for the deleted i
 
 The Express server was stopped and restarted using `npm run dev`. A GET request after restarting returned the same existing database records and IDs, confirming that resource data persists independently of the Express application's memory.
 
+## Postman Testing Screenshots
+
+The following screenshots document the successful execution of the PostgreSQL-backed REST API endpoints using Postman.
+
+### 1. GET All Items — 200 OK
+
+Retrieves all available items directly from the PostgreSQL database.
+
+![GET All Items](screenshots/get-all.png)
+
+### 2. GET Item by ID — 200 OK
+
+Retrieves a specific database record using its unique identifier.
+
+![GET Item by ID](screenshots/get-by-id.png)
+
+### 3. POST New Item — 201 Created
+
+Creates a new item in PostgreSQL and returns the saved record with its automatically generated ID.
+
+![POST New Item](screenshots/post.png)
+
+### 4. PUT Update Item — 200 OK
+
+Updates an existing item's title, description, and completion status.
+
+![PUT Update Item](screenshots/put.png)
+
+### 5. Verify POST and PUT — 200 OK
+
+A subsequent GET request returns both database items, including the newly created item with its updated values. This confirms that the changes were saved in PostgreSQL.
+
+![GET All After POST and PUT](screenshots/get-all-after-post-and-put.png)
+
+### 6. DELETE Item — 200 OK
+
+Permanently removes the selected item from the PostgreSQL database.
+
+![DELETE Item](screenshots/delete.png)
+
+### 7. GET Deleted Item — 404 Not Found
+
+Confirms that the deleted item can no longer be retrieved and that the API correctly returns a 404 status code.
+
+![GET Deleted Item](screenshots/not-found.png)
+
+### 8. Database Persistence Verification — 200 OK
+
+After restarting the Express server, a GET request returns the same existing records and IDs. This demonstrates that PostgreSQL retains the data independently of the application's memory.
+
+![Database Persistence Test](screenshots/persistence.png)
+
 ## Conclusion
 
 The application successfully performs all five REST operations using PostgreSQL. Database-generated identifiers, parameterized SQL queries, input validation, and appropriate HTTP status codes are used throughout the API.
