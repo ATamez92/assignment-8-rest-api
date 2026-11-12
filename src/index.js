@@ -1,6 +1,7 @@
 import express from "express";
 import { logger } from "./middleware/logger.js";
 import resourcesRouter from "./routes/resources.js";
+import pool from "./db.js";  // Import the database connection pool.
 
 // Initialize the Express application.
 const app = express();
@@ -12,7 +13,7 @@ app.use(express.json());
 app.use(logger);
 
 // Mount the resource endpoints under a shared API path.
-app.use("/api/resources", resourcesRouter);
+app.use("/api/items", resourcesRouter);
 
 // Provide a simple endpoint for checking server availability.
 app.get("/api/status", (req, res) => {
@@ -22,9 +23,19 @@ app.get("/api/status", (req, res) => {
     });
 });
 
-// Start the server using the configured port or default to 3000.
+// Start the server API only after verifying the database connection.
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+try {
+    await pool.query("SELECT 1");  // Test the database connection.
+
+
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log("Connected to PostgreSQL");
+    });
+
+} catch (error) {
+    console.error("Database connection failed:", error.message);
+    process.exit(1);  // Exit the process if the database connection fails.
+}

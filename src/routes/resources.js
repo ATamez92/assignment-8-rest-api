@@ -1,104 +1,147 @@
 import express from "express";
+import pool from "../db.js";  // Import the database connection pool.
 
 const router = express.Router();
 
-// Store resources in memory until the server restarts.
-const resources = [
-    {
-        id: "1",
-        title: "Task Number One",
-        description: "This is the first task in the list.",
-        completed: false
-    },
-    {
-        id: "2",
-        title: "Task Number Two",
-        description: "This is the second task in the list.",
-        completed: false
-    }
-];
+// Retrieve all items directly from PostgreSQL database using a GET endpoint.
+router.get("/", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM items ORDER BY id");
 
-// Define a GET endpoint to retrieve all resources in the collection.
-router.get("/", (req, res) => {
-    res.status(200).json({ data: resources });
+        res.status(200).json({ data: result.rows });
+    } catch (error) {
+        console.error("Failed to retrieve items:", error.message);
+        res.status(500).json({ error: "Failed to retrieve items." });
+    }
 });
 
-// Define a GET endpoint to retrieve a specific resource by its ID.
-router.get("/:id", (req, res) => {
-    const resource = resources.find((item) => item.id === req.params.id);
+// Retrieve an item from PostgreSQL using its unique ID with a GET endpoint.
+router.get("/:id", async (req, res) => {
+    const id = Number(req.params.id);
 
-    if (!resource) {
-        return res.status(404).json({
-            error: `Resource with ID ${req.params.id} not found.`
-        })
+    // Validate that the ID is a positive integer before querying the database.
+    if (!Number.isSafeInteger(id) || id < 1) {
+        return res.status(400).json({ error: "Invalid item ID." });
     }
+    // Query the database for the item with the specified ID.
+    try {
+        const result = await pool.query("SELECT * FROM items WHERE id = $1", [id]);
 
-    res.status(200).json({ data: resource });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: `Item with ID ${id} not found.` });
+        }
+
+        res.status(200).json({ data: result.rows[0] });
+    } catch (error) {
+        console.error("Failed to retrieve item:", error.message);
+        res.status(500).json({ error: "Failed to retrieve item." });
+    }
 });
 
-// Define a POST endpoint to create a new resource from incoming JSON data.
-router.post("/", (req, res) => {
+// Create a new item and save it directly to the PostgreSQL database using a POST endpoint.
+router.post("/", async (req, res) => {
     const { title, description, completed } = req.body ?? {};
 
-    if (typeof title !== "string" || title.trim() === "") {
-        return res.status(400).json({
-            error: "Title is required and must be a non-empty string."
-        });
+    if (typeof title !== "string" || !title.trim()) {
+        return res.status(400).json({ error: "A non-empty title is required." });
     }
 
-    const id = Date.now().toString();
+    if (description != null && typeof description !== "string") {
+        return res.status(400).json({ error: "Description must be a string." });
+    }
 
-    const newResource = {
-        id,
-        title: title.trim(),
-        description: description ?? "",
-        completed: completed ?? false
-    };
+    if (completed != null && typeof completed !== "boolean") {
+        return res.status(400).json({ error: "Completed must be a boolean." });
+    }
 
-    resources.push(newResource);
+    try {
+        const result = await pool.query(
+            "INSERT INTO items (title, description, completed) VALUES ($1, $2, $3) RETURNING *",
+            [title.trim(), description ?? "", completed ?? false]
+        );
 
-    res.status(201).json({ data: newResource });
+        res.status(201).json({ data: result.rows[0] });
+    } catch (error) {
+        console.error("Failed to create item:", error.message);
+        res.status(500).json({ error: "Failed to create item." });
+    }
 });
 
-// Define a PUT endpoint to update an existing resource by its ID.
-router.put("/:id", (req, res) => {
-    const resource = resources.find((item) => item.id === req.params.id);
+// Update an existing item directly in PostgreSQL using a PUT endpoint.
+router.put("/:id", async (req, res) => {
+    const id = Number(req.params.id);
 
-    if (!resource) {
-        return res.status(404).json({
-            error: `Resource with ID ${req.params.id} not found.`
-        });
+    if (!Number.isSafeInteger(id) || id < 1) {
+        return res.status(400).json({ error: "Invalid item ID." });
     }
 
     const { title, description, completed } = req.body ?? {};
 
-    if (typeof title !== "string" || title.trim() === "") {
+    if (typeof title !== "string" || !title.trim()) {
         return res.status(400).json({
-            error: "Title is required and must be a non-empty string."
+            error: "A non-empty title is required."
         });
     }
 
-    // Replace editable fields while preserving the resource's ID.
-    resource.title = title.trim();
-    resource.description = description ?? "";
-    resource.completed = completed ?? false;
+    if (description != null && typeof description !== "string") {
+        return res.status(400).json({
+            error: "Description must be a string."
+        });
+    }
 
-    res.status(200).json({ data: resource });
+    if (completed != null && typeof completed !== "boolean") {
+        return res.status(400).json({
+            error: "Completed must be a boolean."
+        });
+    }
+
+    try {
+        const result = await pool.query(
+            `UPDATE items
+       SET title = $1, description = $2, completed = $3
+       WHERE id = $4
+       RETURNING *`,
+            [title.trim(), description ?? "", completed ?? false, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: `Item with ID ${id} not found.`
+            });
+        }
+
+        res.status(200).json({ data: result.rows[0] });
+    } catch (error) {
+        console.error("Failed to update item:", error.message);
+        res.status(500).json({ error: "Failed to update item." });
+    }
 });
 
-// Define a DELETE endpoint to remove a resource by its ID.
-router.delete("/:id", (req, res) => {
-    const index = resources.findIndex((item) => item.id === req.params.id);
+// Delete an item permanently from PostgreSQL using a DELETE endpoint.
+router.delete("/:id", async (req, res) => {
+    const id = Number(req.params.id);
 
-    if (index === -1) {
-        return res.status(404).json({
-            error: `Resource with ID ${req.params.id} not found.`
-        });
+    if (!Number.isSafeInteger(id) || id < 1) {
+        return res.status(400).json({ error: "Invalid item ID." });
     }
 
-    const [deletedResource] = resources.splice(index, 1);
+    try {
+        const result = await pool.query(
+            "DELETE FROM items WHERE id = $1 RETURNING *",
+            [id]
+        );
 
-    res.status(200).json({ data: deletedResource });
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: `Item with ID ${id} not found.`
+            });
+        }
+
+        res.status(200).json({ data: result.rows[0] });
+    } catch (error) {
+        console.error("Failed to delete item:", error.message);
+        res.status(500).json({ error: "Failed to delete item." });
+    }
 });
 
 export default router;
